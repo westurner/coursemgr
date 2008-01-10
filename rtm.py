@@ -11,9 +11,8 @@ from md5 import md5
 
 SERVICE_URL = 'http://api.rememberthemilk.com/services/rest/'
 AUTH_SERVICE_URL = 'http://www.rememberthemilk.com/services/auth/'
-
-
 DEBUG = False
+
 
 class RTMError(Exception): pass
 
@@ -101,7 +100,7 @@ class RTM(object):
         return rsp.auth.token
 
 class RTMAPICategory:
-    "See the `RTM.API` structure and `RTM.__init__`"
+    "See the `API` structure and `RTM.__init__`"
 
     def __init__(self, rtm, prefix, methods):
         self.rtm = rtm
@@ -115,7 +114,7 @@ class RTMAPICategory:
             return lambda **params: self.callMethod(
                 name, rargs, oargs, **params)
         else:
-            raise AttributeError, 'No such attribute: ' + attr
+            raise AttributeError, 'No such attribute: %s' % attr
 
     def callMethod(self, name, rargs, oargs, **params):
         # Sanity checks
@@ -150,6 +149,7 @@ def openURL(url, queryArgs=None):
     return urllib.urlopen(url)
 
 class dottedDict(object):
+    "Make dictionary items accessible via the object-dot notation."
 
     def __init__(self, name, dictionary):
         self._name = name
@@ -158,13 +158,13 @@ class dottedDict(object):
             if type(value) is dict:
                 value = dottedDict(key, value)
             elif type(value) in (list, tuple):
-                value = [dottedDict('<%s:%d>' % (key, i), item)
+                value = [dottedDict('%s:%d' % (key, i), item)
                          for i, item in indexed(value)]
             setattr(self, key, value)
 
     def __repr__(self):
         children = [c for c in dir(self) if not c.startswith('_')]
-        return 'JSON<%s> : %s' % (
+        return 'dotted <%s> : %s' % (
             self._name,
             ', '.join(children))
 
@@ -201,18 +201,21 @@ API = {
     }
 
 
-def test(apiKey, secret, token):
+def test(apiKey, secret, token=None):
     rtm = RTM(apiKey, secret, token)
-    # print 'Give me access here:', rtm.getAuthURL()
-    # raw_input('Press enter once you gave access')
-    # print 'token is', rtm.getToken()
+
+    if token is None:
+        print 'No token found'
+        print 'Give me access here:', rtm.getAuthURL()
+        raw_input('Press enter once you gave access')
+        print 'Note down this token for future use:', rtm.getToken()
 
     rspTasks = rtm.tasks.getList(filter="due:today status:incomplete")
     print [t.name for t in rspTasks.tasks.list.taskseries]
     print rspTasks.tasks.list.id
 
     rspLists = rtm.lists.getList()
-    print rspLists.lists.list
+    # print rspLists.lists.list
     print [(x.name, x.id) for x in rspLists.lists.list]
 
 
