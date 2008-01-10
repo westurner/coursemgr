@@ -50,10 +50,10 @@ class RTM(object):
         for prefix, methods in API.items():
             setattr(self, prefix,
                     RTMAPICategory(self, prefix, methods))
-        
+
         if token:
             self.auth.dataReceived('token', token)
-        
+
     def _sign(self, params):
         "Sign the parameters with MD5 hash"
         pairs = ''.join(['%s%s' % (k,v) for k,v in sortedItems(params)])
@@ -68,13 +68,13 @@ class RTM(object):
         json = openURL(SERVICE_URL, params).read()
         data = dottedJSON(json)
         rsp = data.rsp
-        
+
         if rsp.stat == 'fail':
             raise RTMAPIError, 'API call failed - %s (%s)' % (
                 rsp.err.msg, rsp.err.code)
         else:
             return rsp
-        
+
     def getNewFrob(self):
         rsp = self.get(method='rtm.auth.getFrob')
         self.auth.dataReceived('frob', rsp.frob)
@@ -85,7 +85,7 @@ class RTM(object):
             frob = self.auth.get('frob')
         except AuthStateMachine.NoData:
             frob = self.getNewFrob()
-            
+
         params = {
             'api_key': self.apiKey,
             'perms'  : 'delete',
@@ -126,13 +126,13 @@ class RTMAPICategory:
         for param in params:
             if param not in rargs + oargs:
                 warnings.warn('Invalid parameter (%s)' % param)
-            
+
         return self.rtm.get(method=name,
                             auth_token=self.rtm.auth.get('token'),
                             **params)
 
 
-        
+
 # Utility functions
 
 def sortedItems(dictionary):
@@ -153,7 +153,7 @@ class dottedDict(object):
 
     def __init__(self, name, dictionary):
         self._name = name
-        
+
         for key, value in dictionary.items():
             if type(value) is dict:
                 value = dottedDict(key, value)
@@ -167,7 +167,7 @@ class dottedDict(object):
         return 'JSON<%s> : %s' % (
             self._name,
             ', '.join(children))
-    
+
 
 def safeEval(string):
     return eval(string, {}, {})
@@ -206,7 +206,7 @@ def test(apiKey, secret, token):
     # print 'Give me access here:', rtm.getAuthURL()
     # raw_input('Press enter once you gave access')
     # print 'token is', rtm.getToken()
-    
+
     rspTasks = rtm.tasks.getList(filter="due:today status:incomplete")
     print [t.name for t in rspTasks.tasks.list.taskseries]
     print rspTasks.tasks.list.id
