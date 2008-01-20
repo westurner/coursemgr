@@ -201,7 +201,7 @@ API = {
     }
 
 
-def test(apiKey, secret, token=None):
+def createRTM(apiKey, secret, token=None):
     rtm = RTM(apiKey, secret, token)
 
     if token is None:
@@ -210,12 +210,16 @@ def test(apiKey, secret, token=None):
         raw_input('Press enter once you gave access')
         print 'Note down this token for future use:', rtm.getToken()
 
-    rspTasks = rtm.tasks.getList(filter="due:today status:incomplete")
+    return rtm
+
+def test(apiKey, secret, token=None):
+    rtm = createRTM(apiKey, secret, token)
+
+    rspTasks = rtm.tasks.getList(filter='dueWithin:"1 week of today"')
     print [t.name for t in rspTasks.tasks.list.taskseries]
     print rspTasks.tasks.list.id
 
     rspLists = rtm.lists.getList()
     # print rspLists.lists.list
     print [(x.name, x.id) for x in rspLists.lists.list]
-
 
