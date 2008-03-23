@@ -7,6 +7,7 @@ import new
 import warnings
 import urllib
 from md5 import md5
+import simplejson
 
 
 SERVICE_URL = 'http://api.rememberthemilk.com/services/rest/'
@@ -65,7 +66,8 @@ class RTM(object):
         params['api_sig'] = self._sign(params)
 
         json = openURL(SERVICE_URL, params).read()
-        data = dottedJSON(json)
+        #data = dottedJSON(json)
+        data = dottedDict('ROOT', simplejson.loads(json))
         rsp = data.rsp
 
         if rsp.stat == 'fail':
