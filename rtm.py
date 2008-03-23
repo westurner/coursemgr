@@ -1,6 +1,11 @@
 # Python library for Remember The Milk API
 
 __author__ = 'Sridhar Ratnakumar <http://nearfar.org/>'
+__all__ = [
+    'DEBUG',
+    'API',
+    'createRTM',
+        ]
 
 
 import new
@@ -67,6 +72,8 @@ class RTM(object):
 
         json = openURL(SERVICE_URL, params).read()
         #data = dottedJSON(json)
+        if DEBUG:
+            print json
         data = dottedDict('ROOT', simplejson.loads(json))
         rsp = data.rsp
 
@@ -112,13 +119,13 @@ class RTMAPICategory:
     def __getattr__(self, attr):
         if attr in self.methods:
             rargs, oargs = self.methods[attr]
-            name = 'rtm.%s.%s' % (self.prefix, attr)
+            aname = 'rtm.%s.%s' % (self.prefix, attr)
             return lambda **params: self.callMethod(
-                name, rargs, oargs, **params)
+                aname, rargs, oargs, **params)
         else:
             raise AttributeError, 'No such attribute: %s' % attr
 
-    def callMethod(self, name, rargs, oargs, **params):
+    def callMethod(self, aname, rargs, oargs, **params):
         # Sanity checks
         for requiredArg in rargs:
             if requiredArg not in params:
@@ -128,7 +135,7 @@ class RTMAPICategory:
             if param not in rargs + oargs:
                 warnings.warn('Invalid parameter (%s)' % param)
 
-        return self.rtm.get(method=name,
+        return self.rtm.get(method=aname,
                             auth_token=self.rtm.auth.get('token'),
                             **params)
 
@@ -187,21 +194,150 @@ def indexed(seq):
 # API spec
 
 API = {
+#   'auth': {
+#       'checkToken':
+#           [('auth_token'), ()],
+#       'getFrob':
+#           [(), ()],
+#       'getToken':
+#           [('frob'), ()]
+#       },
+    'contacts': {
+        'add':
+            [('timeline', 'contact'), ()],
+        'delete':
+            [('timeline', 'contact_id'), ()],
+        'getList':
+            [(), ()]
+        },
+    'groups': {
+        'add':
+            [('timeline', 'group'), ()],
+        'addContact':
+            [('timeline', 'group_id', 'contact_id'), ()],
+        'delete':
+            [('timeline', 'group_id'), ()],
+        'getList':
+            [(), ()],
+        'removeContact':
+            [('timeline', 'group_id', 'contact_id'), ()],
+        },
     'lists': {
+        'add':
+            [('timeline', 'name'), ('filter'), ()],
+        'archive':
+            [('timeline', 'list_id'), ()],
+        'delete':
+            [('timeline', 'list_id'), ()],
+        'getList':
+            [(), ()],
+        'setDefaultList':
+            [('timeline'), ('list_id'), ()],
+        'setName':
+            [('timeline', 'list_id', 'name'), ()],
+        'unarchive':
+            [('timeline'), ('list_id'), ()],
+        },
+    'locations': {
+        'getList':
+            [(), ()]
+        },
+    'reflection': {
+        'getMethodInfo':
+            [('methodName',), ()],
+        'getMethods':
+            [(), ()]
+        },
+    'settings': {
         'getList':
             [(), ()]
         },
     'tasks': {
+        'add':
+            [('timeline', 'name',), ('list_id', 'parse',)],
         'addTags':
-            # [requiredArgs, optionalArgs]
             [('timeline', 'list_id', 'taskseries_id', 'task_id', 'tags'),
              ()],
+        'complete':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id',), ()],
+        'delete':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'), ()],
         'getList':
             [(),
-             ('list_id', 'filter', 'last_sync')]
-        }
+             ('list_id', 'filter', 'last_sync')],
+        'movePriority':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id', 'direction'),
+             ()],
+        'moveTo':
+            [('timeline', 'from_list_id', 'to_list_id', 'taskseries_id', 'task_id'),
+             ()],
+        'postpone':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ()],
+        'removeTags':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id', 'tags'),
+             ()],
+        'setDueDate':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('due', 'has_due_time', 'parse')],
+        'setEstimate':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('estimate',)],
+        'setLocation':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('location_id',)],
+        'setName':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id', 'name'),
+             ()],
+        'setPriority':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('priority',)],
+        'setRecurrence':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('repeat',)],
+        'setTags':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('tags',)],
+        'setURL':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ('url',)],
+        'uncomplete':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id'),
+             ()],
+        },
+    'tasksNotes': {
+        'add':
+            [('timeline', 'list_id', 'taskseries_id', 'task_id', 'note_title', 'note_text'), ()],
+        'delete':
+            [('timeline', 'note_id'), ()],
+        'edit':
+            [('timeline', 'note_id', 'note_title', 'note_text'), ()]
+        },
+    'test': {
+        'echo':
+            [(), ()],
+        'login':
+            [(), ()]
+        },
+    'time': {
+        'convert':
+            [('to_timezone',), ('from_timezone', 'to_timezone', 'time')],
+        'parse':
+            [('text',), ('timezone', 'dateformat')]
+        },
+    'timelines': {
+        'create':
+            [(), ()]
+        },
+    'timezones': {
+        'getList':
+            [(), ()]
+        },
+    'transactions': {
+        'undo':
+            [('timeline', 'transaction_id'), ()]
+        },
     }
-
 
 def createRTM(apiKey, secret, token=None):
     rtm = RTM(apiKey, secret, token)
