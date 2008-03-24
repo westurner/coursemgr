@@ -12,7 +12,12 @@ import new
 import warnings
 import urllib
 from md5 import md5
-import simplejson
+_use_simplejson = False
+try:
+    import simplejson
+    _use_simplejson = True
+except ImportError:
+    pass
 
 
 SERVICE_URL = 'http://api.rememberthemilk.com/services/rest/'
@@ -72,10 +77,12 @@ class RTM(object):
         params['api_sig'] = self._sign(params)
 
         json = openURL(SERVICE_URL, params).read()
-        #data = dottedJSON(json)
         if self.DEBUG:
             print json
-        data = dottedDict('ROOT', simplejson.loads(json))
+        if _use_simplejson:
+            data = dottedDict('ROOT', simplejson.loads(json))
+        else:
+            data = dottedJSON(json)
         rsp = data.rsp
 
         if rsp.stat == 'fail':
