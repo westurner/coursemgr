@@ -1,0 +1,11 @@
+2008-03-23  Mariano Draghi <mariano at chaghi dot com dot ar> 
+
+	* rtm.py: Implemented the full RTM API. Integrated simplejson to
+	  handle JSON responses, which should fix some encoding problems.
+	  Renamed some internal attributes (name, auth) of RTM class,
+	  because they where conflicting with some methods and arguments
+	  of the API calls wich had the same name. Fixed a minor issue
+	  with dottedDict class and non dict instances. Added a simple
+	  mechanism to turn debugging on/off dynamically.
+	* README / ChangeLog: Added.
+
