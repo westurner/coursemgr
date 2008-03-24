@@ -1,3 +1,8 @@
+2008-03-24  Mariano Draghi <mariano at chaghi dot com dot ar> 
+
+	* rtm.py: Use the standard python logging module to handle
+	  debugging messages.
+
 2008-03-23  Mariano Draghi <mariano at chaghi dot com dot ar> 
 
 	* rtm.py: Implemented the full RTM API. Integrated simplejson to

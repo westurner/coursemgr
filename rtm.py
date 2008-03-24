@@ -1,16 +1,17 @@
 # Python library for Remember The Milk API
 
 __author__ = 'Sridhar Ratnakumar <http://nearfar.org/>'
-__all__ = [
-    'DEBUG',
+__all__ = (
     'API',
     'createRTM',
-        ]
+    'set_log_level',
+        )
 
 
 import new
 import warnings
 import urllib
+import logging
 from md5 import md5
 _use_simplejson = False
 try:
@@ -19,10 +20,12 @@ try:
 except ImportError:
     pass
 
+logging.basicConfig()
+LOG = logging.getLogger(__name__)
+LOG.setLevel(logging.INFO)
 
 SERVICE_URL = 'http://api.rememberthemilk.com/services/rest/'
 AUTH_SERVICE_URL = 'http://www.rememberthemilk.com/services/auth/'
-DEBUG = False
 
 
 class RTMError(Exception): pass
@@ -51,11 +54,10 @@ class AuthStateMachine(object):
 
 class RTM(object):
 
-    def __init__(self, apiKey, secret, token=None, DEBUG=False):
+    def __init__(self, apiKey, secret, token=None):
         self.apiKey = apiKey
         self.secret = secret
         self.authInfo = AuthStateMachine(['frob', 'token'])
-        self.DEBUG = DEBUG
 
         # this enables one to do 'rtm.tasks.getList()', for example
         for prefix, methods in API.items():
@@ -77,8 +79,9 @@ class RTM(object):
         params['api_sig'] = self._sign(params)
 
         json = openURL(SERVICE_URL, params).read()
-        if self.DEBUG:
-            print json
+
+        LOG.debug("JSON response: \n%s" % json)
+
         if _use_simplejson:
             data = dottedDict('ROOT', simplejson.loads(json))
         else:
@@ -161,8 +164,7 @@ def sortedItems(dictionary):
 def openURL(url, queryArgs=None):
     if queryArgs:
         url = url + '?' + urllib.urlencode(queryArgs)
-    if DEBUG:
-        print 'URL>', url
+    LOG.debug("URL> %s", url)
     return urllib.urlopen(url)
 
 class dottedDict(object):
@@ -348,8 +350,8 @@ API = {
         },
     }
 
-def createRTM(apiKey, secret, token=None, DEBUG=DEBUG):
-    rtm = RTM(apiKey, secret, token, DEBUG)
+def createRTM(apiKey, secret, token=None):
+    rtm = RTM(apiKey, secret, token)
 
     if token is None:
         print 'No token found'
@@ -370,3 +372,12 @@ def test(apiKey, secret, token=None):
     # print rspLists.lists.list
     print [(x.name, x.id) for x in rspLists.lists.list]
 
+def set_log_level(level):
+    '''Sets the log level of the logger used by the module.
+    
+    >>> import rtm
+    >>> import logging
+    >>> rtm.set_log_level(logging.INFO)
+    '''
+    
+    LOG.setLevel(level)
