@@ -46,10 +46,11 @@ class AuthStateMachine(object):
 
 class RTM(object):
 
-    def __init__(self, apiKey, secret, token=None):
+    def __init__(self, apiKey, secret, token=None, DEBUG=False):
         self.apiKey = apiKey
         self.secret = secret
-        self.auth = AuthStateMachine(['frob', 'token'])
+        self.authInfo = AuthStateMachine(['frob', 'token'])
+        self.DEBUG = DEBUG
 
         # this enables one to do 'rtm.tasks.getList()', for example
         for prefix, methods in API.items():
@@ -57,7 +58,7 @@ class RTM(object):
                     RTMAPICategory(self, prefix, methods))
 
         if token:
-            self.auth.dataReceived('token', token)
+            self.authInfo.dataReceived('token', token)
 
     def _sign(self, params):
         "Sign the parameters with MD5 hash"
@@ -72,7 +73,7 @@ class RTM(object):
 
         json = openURL(SERVICE_URL, params).read()
         #data = dottedJSON(json)
-        if DEBUG:
+        if self.DEBUG:
             print json
         data = dottedDict('ROOT', simplejson.loads(json))
         rsp = data.rsp
@@ -85,12 +86,12 @@ class RTM(object):
 
     def getNewFrob(self):
         rsp = self.get(method='rtm.auth.getFrob')
-        self.auth.dataReceived('frob', rsp.frob)
+        self.authInfo.dataReceived('frob', rsp.frob)
         return rsp.frob
 
     def getAuthURL(self):
         try:
-            frob = self.auth.get('frob')
+            frob = self.authInfo.get('frob')
         except AuthStateMachine.NoData:
             frob = self.getNewFrob()
 
@@ -103,9 +104,9 @@ class RTM(object):
         return AUTH_SERVICE_URL + '?' + urllib.urlencode(params)
 
     def getToken(self):
-        frob = self.auth.get('frob')
+        frob = self.authInfo.get('frob')
         rsp = self.get(method='rtm.auth.getToken', frob=frob)
-        self.auth.dataReceived('token', rsp.auth.token)
+        self.authInfo.dataReceived('token', rsp.auth.token)
         return rsp.auth.token
 
 class RTMAPICategory:
@@ -136,7 +137,7 @@ class RTMAPICategory:
                 warnings.warn('Invalid parameter (%s)' % param)
 
         return self.rtm.get(method=aname,
-                            auth_token=self.rtm.auth.get('token'),
+                            auth_token=self.rtm.authInfo.get('token'),
                             **params)
 
 
@@ -163,13 +164,14 @@ class dottedDict(object):
     def __init__(self, name, dictionary):
         self._name = name
 
-        for key, value in dictionary.items():
-            if type(value) is dict:
-                value = dottedDict(key, value)
-            elif type(value) in (list, tuple):
-                value = [dottedDict('%s:%d' % (key, i), item)
-                         for i, item in indexed(value)]
-            setattr(self, key, value)
+        if type(dictionary) is dict:
+            for key, value in dictionary.items():
+                if type(value) is dict:
+                    value = dottedDict(key, value)
+                elif type(value) in (list, tuple):
+                    value = [dottedDict('%s_%d' % (key, i), item)
+                             for i, item in indexed(value)]
+                setattr(self, key, value)
 
     def __repr__(self):
         children = [c for c in dir(self) if not c.startswith('_')]
@@ -194,14 +196,14 @@ def indexed(seq):
 # API spec
 
 API = {
-#   'auth': {
-#       'checkToken':
-#           [('auth_token'), ()],
-#       'getFrob':
-#           [(), ()],
-#       'getToken':
-#           [('frob'), ()]
-#       },
+   'auth': {
+       'checkToken':
+           [('auth_token'), ()],
+       'getFrob':
+           [(), ()],
+       'getToken':
+           [('frob'), ()]
+       },
     'contacts': {
         'add':
             [('timeline', 'contact'), ()],
@@ -339,8 +341,8 @@ API = {
         },
     }
 
-def createRTM(apiKey, secret, token=None):
-    rtm = RTM(apiKey, secret, token)
+def createRTM(apiKey, secret, token=None, DEBUG=DEBUG):
+    rtm = RTM(apiKey, secret, token, DEBUG)
 
     if token is None:
         print 'No token found'
