@@ -130,7 +130,10 @@ class RTMAPICategory:
     def __getattr__(self, attr):
         if attr in self.methods:
             rargs, oargs = self.methods[attr]
-            aname = 'rtm.%s.%s' % (self.prefix, attr)
+            if self.prefix == 'tasksNotes':
+                aname = 'rtm.tasks.notes.%s' % attr
+            else:
+                aname = 'rtm.%s.%s' % (self.prefix, attr)
             return lambda **params: self.callMethod(
                 aname, rargs, oargs, **params)
         else:

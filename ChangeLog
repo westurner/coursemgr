@@ -1,3 +1,8 @@
+2008-04-26  Mariano Draghi <mariano at chaghi dot com dot ar> 
+
+	* rtm.py: Fixed invocation of tasks.notes methods, based on code
+	  contributed by David Steele.
+
 2008-03-24  Mariano Draghi <mariano at chaghi dot com dot ar> 
 
 	* rtm.py: Use the standard python logging module to handle
