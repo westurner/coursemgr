@@ -1,3 +1,9 @@
+2008-05-05  Mariano Draghi <mariano at chaghi dot com dot ar> 
+
+	* rtm.py: Fixed a corner case where parsing the response with 
+	  dottedJSON (i.e., when not using simplejson) would fail to
+	  fetch multiple tags. Contributed by Greg Allen.
+
 2008-04-26  Mariano Draghi <mariano at chaghi dot com dot ar> 
 
 	* rtm.py: Fixed invocation of tasks.notes methods, based on code

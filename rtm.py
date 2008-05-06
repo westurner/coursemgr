@@ -180,7 +180,7 @@ class dottedDict(object):
             for key, value in dictionary.items():
                 if type(value) is dict:
                     value = dottedDict(key, value)
-                elif type(value) in (list, tuple):
+                elif type(value) in (list, tuple) and key != 'tag':
                     value = [dottedDict('%s_%d' % (key, i), item)
                              for i, item in indexed(value)]
                 setattr(self, key, value)
