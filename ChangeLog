@@ -1,5 +1,7 @@
 2008-05-05  Mariano Draghi <mariano at chaghi dot com dot ar> 
 
+	* rtm.py: Issue a warnging if simplejson is not available.
+
 	* rtm.py: Fixed a corner case where parsing the response with 
 	  dottedJSON (i.e., when not using simplejson) would fail to
 	  fetch multiple tags. Contributed by Greg Allen.

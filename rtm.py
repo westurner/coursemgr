@@ -13,12 +13,22 @@ import warnings
 import urllib
 import logging
 from md5 import md5
+
+warnings.simplefilter('default', ImportWarning)
+
 _use_simplejson = False
 try:
     import simplejson
     _use_simplejson = True
 except ImportError:
     pass
+
+if not _use_simplejson:
+    warnings.warn("simplejson module is not available, "
+             "falling back to the internal JSON parser. "
+             "Please consider installing the simplejson module from "
+             "http://pypi.python.org/pypi/simplejson.", ImportWarning,
+             stacklevel=2)
 
 logging.basicConfig()
 LOG = logging.getLogger(__name__)
