@@ -46,8 +46,12 @@ def addTask(rtm, name, tags=None,
     Set atomic to false if handling batches
     '''
 
+    if not name:
+        logging.error("A task must have a name")
+        raise Exception
+
     if atomic:
-        rtm._tl = rtm.timelines.current = rtm.timelines.create().timeline
+        rtm._tl = rtm.timelines.create().timeline
     
     try:
         tr = rtm.tasks.add(timeline=rtm._tl,name=name,parse=parse)
@@ -114,8 +118,6 @@ class Task(object):
         self.id=id
         self.list_id=list_id
         #self.list_name
-        #self.taskseries_id
-        #self.id
 
     def save(self, rtm):
         try:
@@ -124,7 +126,7 @@ class Task(object):
                     self.estimate,self.repeat, self.priority, True, True)
             # update self with relevant
             logging.info("Saved task: %s (%s:%s)" % \
-                    self.name, self.list_id, self.id)
+                    (self.name, self.list_id, self.id)
             return True
         except:
             logging.error("Error saving task")
@@ -139,22 +141,25 @@ class Task(object):
             'estimate': self.estimate or '',
             'priority': self.priority or ''})
 
+    def __str_detailed__(self):
+        print str(self)
+        print 'id  :', self.id
+        print 'lid :', self.list_id
+        print 'tser:', self.tser_id
+ 
 
 def test_Task(rtm=rtm_connection()):
     t = Task("wow",tags=['prety','@cool'], due_date="tomorrow", estimate="10 minutes")
     t.save(rtm)
-    print t
-    print 'id  : ', t.id
-    print 'lid : ', t.list_id
-    print 'tser: ', t.tser_id
+    print t.__str_detailed__()
     assert t.id is not None
     assert t.list_id is not None
-
 
 
 if __name__=="__main__":
 #    print '\n'.join(map(str,examp(rtm_connection())))
     from optparse import OptionParser
+    from operator import xor
     arg = OptionParser(version="%prog 0.1")
 
     arg.add_option('-c','--create',dest='create', action='store_true',
@@ -165,16 +170,26 @@ if __name__=="__main__":
     arg.add_option('-e','--estimate',dest='estimate', help='Task time estimate')
     arg.add_option('-r','--repeat',dest='repeat',help='Task repetition')
     arg.add_option('-p','--priority',dest='priority',help='Task priority')
+    arg.add_option('-l','--list',dest='get_list',help='Get list by filter')
 
     arg.add_option('--test',dest='test',action='store_true',help='Testing')
 
     (options, args) = arg.parse_args()
 
+    actions={'-c/--create':options.create,
+            '-l/--list':options.get_list,
+            '--test':options.test}
+
+    # Exclusive actions
+    if not reduce(xor, map(bool, actions.values())):
+        logging.error("Can only select one of %s" % ', '.join(actions.keys()))
+        exit()
+
     if options.test:
         rtm = rtm_connection()
         test_Task(rtm)
         exit()
-   
+ 
     # Normalize tags list
     if options.tags:
         options.tags = map(str.strip, options.tags.split(','))
@@ -184,3 +199,6 @@ if __name__=="__main__":
                 options.estimate, options.repeat, options.priority,
                 parse=True)
         t.save(rtm_connection())
+
+    if options.get_list:
+        print "list by formatter selection"
