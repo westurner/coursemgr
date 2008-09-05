@@ -3,13 +3,24 @@ import sys,re
 from itertools import ifilter,count,imap,izip
 
 GIT_DONE='^\s+(-|\+|\*)\s?(.*)\n'
-regex = re.compile(GIT_DONE)
+regex = re.compile(len(sys.argv) > 1 and sys.argv[1] or GIT_DONE)
 def gitgrep(regex,line):
     match = regex.search(line)
-    return bool(match) and match.groups()[:2] or None
+    return bool(match) and match.groups() or None
+
+def line_numbered(i,l):
+    print "%-4s %s" % (i, '|'.join(map(str.strip,l)))
+
+def line_normal(i,l):
+    print '|'.join(map(str.strip,l))
+
+if '-n' in sys.argv:
+    o = line_numbered
+else:
+    o = line_normal
 
 for (i,l) in izip(count(),
-        ifilter(lambda x: x and x[0] is '-',
+        ifilter(lambda x: x,
             imap(lambda x: gitgrep(regex,x),
                 sys.stdin.readlines()))):
-                    print "%-4s %s" % (i, l[1].strip())
+                   o(i,l) 
