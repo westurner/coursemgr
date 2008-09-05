@@ -49,7 +49,7 @@ class RMilk(RTM):
 
     def getList(self, filter='', list_id=None, showcompleted=False):
         if not showcompleted:
-            filter = "%s status:incomplete" % filter
+            filter = "%s AND status:incomplete" % filter
 
         if not list_id:
             results = self.tasks.getList(filter=filter)
@@ -57,6 +57,9 @@ class RMilk(RTM):
             results = self.tasks.getList(list_id=list_id,filter=filter)
 
         logging.debug(results.__dict__)
+        if not results.tasks:
+            print "No Search Results"
+            exit()
 
         if type(results.tasks.list) is not list:
             results.tasks.list = [results.tasks.list]
@@ -78,7 +81,7 @@ class RMilk(RTM):
         kw = {  'name':task.name,
                 'tags':task.tags and task.tags.tag or [],
                 'completed':task.task.completed,
-                'due_date':task.task.due,
+                'due':task.task.due,
                 'id':task.task.id,
                 'list_id':list_id,
                 'taskseries_id':taskseries_id,
@@ -93,11 +96,11 @@ class RMilk(RTM):
 TEMPLATE_TASK = Template(
 '''Name: ${name}
 Tags: ${tags}
-Due : ${due_date}
+Due : ${due}
 Est : ${estimate}
 Pri : ${priority}''')
 
-TASK_ATTRS = ['name','tags','due_date','estimate','recurrence','priority',
+TASK_ATTRS = ['name','tags','due','estimate','recurrence','priority',
         'parse','id','list_id','taskseries_id','completed']
 
 class Task(object):
@@ -116,7 +119,7 @@ class Task(object):
         return TEMPLATE_TASK.substitute({
             'name':self.name,
             'tags':self.tags and ', '.join(self.tags) or '',
-            'due_date': self.due_date or '',
+            'due': self.due or '',
             'estimate': self.estimate or '',
             'priority': self.priority or ''})
 
@@ -168,17 +171,10 @@ class RTMTask(Task):
             # raise APISetterException
             logging.debug("'uh oh: stat=%s" % rsp.__dict__['stat'])
 
-        #print rsp.list.taskseries
-        #print rsp.list.taskseries.task.__dict__
-        #print rsp.list.taskseries.tags
-        #print rsp.list.taskseries.url
-        t = rsp.list.taskseries.task
+        task = rsp.list.taskseries.task
 
         # synchronize task changes object
-        self.__set('due_date',bool(t.due) and t.due or None)
-        self.__set('priority',t.priority)
-        self.__set('estimate',t.estimate)
-        self.__set('completed',t.completed)
+        self.__set(attr,task.__dict__.get(attr))
         return rsp
 
 
@@ -188,14 +184,14 @@ class RTMTask(Task):
     def setTags(self,tags):
         return self._rtmwrap(self.rtm.tasks.setTags,'tags',','.join(tags))
 
-    def setDuedate(self,due_date):
-        return self._rtmwrap(self.rtm.setDuedate,'due_date',due_date, parse=True)
+    def setDue(self,due):
+        return self._rtmwrap(self.rtm.tasks.setDueDate,'due',due, parse=True)
 
     def setEstimate(self,estimate):
         return self._rtmwrap(self.rtm.tasks.setEstimate,'estimate',estimate)
 
-    def setRecurrence(self,recurrance):
-        return self._rtmwrap(self.rtm.tasks.setRecurrence,'repeat',recurrance)
+    def setRecurrence(self,recurrence):
+        return self._rtmwrap(self.rtm.tasks.setRecurrence,'repeat',recurrence)
 
     def setPriority(self,priority):
         return self._rtmwrap(self.rtm.tasks.setPriority,'priority',priority)
@@ -210,18 +206,18 @@ class RTMTask(Task):
     def save(self):
         # create or update
         # update
-        try:
+        #try:
             if self.isNew:
                 logging.debug("Creating a new task")
                 tr = self.rtm.tasks.add(timeline=self.rtm._tl,name=self.name,parse=True)
                 self.list_id = tr.list.id
                 self.taskseries_id = tr.list.taskseries.id
-                self.task_id = tr.list.taskseries.task.id
+                self.id = tr.list.taskseries.task.id
                 self.isNew = False
                 
                 for attr in TASK_ATTRS:
-                    val = self.__dict__[attr]
-                    if bool(val):
+                    val = self.__dict__.get(attr)
+                    if val:
                         func = self.__class__.__dict__.get('set%s' % attr.title(),printer)
                         func(self,val or '')
                         logging.debug("%s   %s" % (func.__name__, val))
@@ -236,7 +232,7 @@ class RTMTask(Task):
             logging.info("Saved task: %s (%s:%s)" % (self.name, self.list_id, self.id))
             logging.debug(self.__dict__)
             return True
-        except:
+        #except:
             # TODO: undo
             logging.error("Error saving task")
             return False
@@ -244,7 +240,7 @@ class RTMTask(Task):
 
 
 def test_Task(rtm=RMilk()):
-    t = Task(name="wow",tags=['prety','@cool'], due_date="tomorrow", estimate="10 minutes")
+    t = Task(name="wow",tags=['prety','@cool'], due="tomorrow", estimate="10 minutes")
     t.save(rtm)
     print t.__str_detailed__()
     assert t.id is not None
@@ -254,24 +250,29 @@ def test_Task(rtm=RMilk()):
 if __name__=="__main__":
     from optparse import OptionParser
     from operator import xor
-    arg = OptionParser(version="%prog 0.1")
+    arg = OptionParser(version="%prog 0.2")
 
     arg.add_option('-c','--create',dest='create', action='store_true',help='Create a new task')
     arg.add_option('-n','--name',dest='name',help='Task name')
     arg.add_option('-t','--tags',dest='tags', help='Task tags (comma separated)')
-    arg.add_option('-d','--due',dest='due_date', help='Due date')
+    arg.add_option('-d','--due',dest='due', help='Due date')
     arg.add_option('-e','--estimate',dest='estimate', help='Task time estimate')
-    arg.add_option('-r','--recur',dest='recurrance',help='Task recurrance')
+    arg.add_option('-r','--recur',dest='recurrence',help='Task recurrence')
     arg.add_option('-p','--priority',dest='priority',help='Task priority')
     arg.add_option('-l','--list',dest='get_list',help='Get list by filter')
+    arg.add_option('-s','--search',dest='search',help='Keyword search for tasks')
+    arg.add_option('-i','--ipython',dest='ipython',action='store_true',
+            help='Create RTM connection and drop to ipython')
 
-    arg.add_option('--rename',nargs=2,dest='tag_rename',help='Rename <original> with <tag>. Requires list filter')
+    arg.add_option('--rename',nargs=2,dest='tag_rename',
+            help='Rename <original> with <tag>. Requires list filter')
     arg.add_option('--test',dest='test',action='store_true',help='Testing')
 
     (options, args) = arg.parse_args()
 
     actions={'-c/--create':options.create,
             '-l/--list':options.get_list,
+            '-s/--search':options.search,
             '--test':options.test}
 
     # Intialize tasklist
@@ -302,20 +303,24 @@ if __name__=="__main__":
         options.tags = map(str.strip, options.tags.split(','))
 
     if options.create:
-        t = Task(name=options.name,
+        print 'esdfsdf: ', options.estimate
+        t = RTMTask(rtm,name=options.name,
                 tags=options.tags,
-                due_date=options.due_date,
+                due=options.due,
                 estimate=options.estimate,
-                recurrance=options.recurrance,
-                priority=options.priority,
-                parse=True)
-        t.save(rtm)
+                recurrence=options.recurrence,
+                priority=options.priority,)
+        t.save()
 
     if options.get_list:
         tasklist = rtm.getList(filter=options.get_list)
         for task in tasklist:
             print '\n',str(task)
-#        print tasklist
+
+    if options.search:
+        tasklist = rtm.getList(filter='(name:"%s" OR tag:"%s")' % (options.search,options.search))
+        for task in tasklist:
+            print '\n',str(task)
 
     if options.tag_rename: # 2 options
         if not options.get_list:
@@ -329,3 +334,11 @@ if __name__=="__main__":
             t.tags = list(set(t.tags).union([new]).difference([old]))
             logging.info(" - %s" % t.name)
             t.save()
+
+    if options.ipython:
+        try:
+            from IPython.Shell import IPShellEmbed
+            ipshell = IPShellEmbed(argv=[])
+            ipshell(header='--- rtm interactive ---')
+        except:
+            print "Couldn't find IPython"
