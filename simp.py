@@ -90,9 +90,6 @@ class RMilk(RTM):
         return RTMTask(self,new=False,**kw)
 
 
-        
-        # cast return structure to task
-
 TEMPLATE_TASK = Template(
 '''Name: ${name}
 Tags: ${tags}
