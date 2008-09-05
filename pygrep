@@ -1,0 +1,15 @@
+#!/usr/bin/env python2.5
+import sys,re
+from itertools import ifilter,count,imap,izip
+
+GIT_DONE='^\s+(-|\+|\*)\s?(.*)\n'
+regex = re.compile(GIT_DONE)
+def gitgrep(regex,line):
+    match = regex.search(line)
+    return bool(match) and match.groups()[:2] or None
+
+for (i,l) in izip(count(),
+        ifilter(lambda x: x and x[0] is '-',
+            imap(lambda x: gitgrep(regex,x),
+                sys.stdin.readlines()))):
+                    print "%-4s %s" % (i, l[1].strip())
