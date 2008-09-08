@@ -4,12 +4,19 @@ from rtm import createRTM, RTM
 import logging
 from string import Template
 
+
+# Globals
 API_KEY="8db21291ccdbcd858059799cb44dc57c"
 API_SEC="5d80e818ec7aa0b4"
 
 API_TOK="abee05a338c1799fe8f86bde83de573e9628cfe7"
 
 TZ_DEFAULT=84 # Chicago CDT
+
+# logging init
+logging.basicConfig(format="%(asctime)-15s %(message)s")
+log = logging.getLogger('rtmsimp')
+log.setLevel(logging.INFO)
 
 def printdict(d):
     print '\n'.join([("%s : %s" % (k,v)) for (k,v) in d.items()])
@@ -27,7 +34,7 @@ class RMilk(RTM):
         if 0 and token is None:
             print 'No token found'
             print 'Login here:', self.getAuthURL()
-            raw_input('Press enter after logging in at the link above')
+            raw_input('Press enter after log.in at the link above')
             token = self.getToken()
             print 'Remember this token:', token
             super(RMilk,self).__init__(self,apiKey,secret,token)
@@ -44,8 +51,13 @@ class RMilk(RTM):
             for x in tz.timezones.timezone if 'America' in x.name])
 
     def getListDict(self):
-        r = self.lists.getList()
-        return dict(map(lambda x:(x.name, x.id), filter(lambda x: x.smart == u'0', r.lists.list)))
+        """ Filter, cache, and return lists as dict """
+        if self.LISTS:
+            return self.LISTS
+        self.LISTS = dict(map(lambda x:(x.name, x.id), 
+            filter(lambda x: x.smart == u'0',
+                self.lists.getList().lists.list)))
+        return self.LISTS
 
     def getList(self, filter='', list_id=None, showcompleted=False):
         if not showcompleted:
@@ -56,7 +68,7 @@ class RMilk(RTM):
         else:
             results = self.tasks.getList(list_id=list_id,filter=filter)
 
-        logging.debug(results.__dict__)
+        log.debug(results.__dict__)
         if not results.tasks:
             print "No Search Results"
             exit()
@@ -66,11 +78,13 @@ class RMilk(RTM):
 
         ret = []
 
+        # TODO: handle recurring tasks
+
         for l in results.tasks.list:
             list_id = l.id
             if type(l.taskseries) is not list:
                 l.taskseries = [l.taskseries]
-            for s in l.taskseries:
+            for s in ifilter(lambda x: not x.__dict__.get('rrule'), l.taskseries):
                 taskseries_id = s.id
                 ret.append(self._createTask(s,list_id,taskseries_id))
 
@@ -78,9 +92,10 @@ class RMilk(RTM):
 
         
     def _createTask(self,task,list_id,taskseries_id):
+        print task
         kw = {  'name':task.name,
                 'tags':task.tags and task.tags.tag or [],
-                'completed':task.task.completed,
+                'completed':task.task.completed or '',
                 'due':task.task.due,
                 'id':task.task.id,
                 'list_id':list_id,
@@ -110,7 +125,7 @@ class Task(object):
             if k in TASK_ATTRS:
                 self.__dict__.update({k:v})
             else:
-                logging.error("'%s' property not supported by task object" % k)
+                log.error("'%s' property not supported by task object" % k)
 
     def __str__(self):
         return TEMPLATE_TASK.substitute({
@@ -119,6 +134,10 @@ class Task(object):
             'due': self.due or '',
             'estimate': self.estimate or '',
             'priority': self.priority or ''})
+
+    def _tagRename(self,old,new):
+        self.tags = list(set(self.tags).difference([old]).union([new]))
+
 
     def __str_detailed__(self):
         print str(self)
@@ -134,7 +153,7 @@ class RTMTask(Task):
         self.isCurrent = False
         self.rtm = rtm
         self._updated = []
-        logging.debug(printdict(self.__dict__))
+        #log.debug(printdict(self.__dict__))
 
     def __setattr__(self, attr, val):
         # track which attrs have changed since init
@@ -156,17 +175,18 @@ class RTMTask(Task):
         kw = self._params()
         kw.update({attr:val})
         kw.update(kwargs)
-        logging.debug("_rtmwrap: %s" % kw)
+        log.debug("_rtmwrap: %s" % kw)
 
         rsp = func(**kw)
-
         # on success
-        logging.debug("API call completed, removing %s from _updated" % attr)
+        self.__dict__[attr] = val
+
+        log.debug("%s(%s)" % (func.__name__, val))
 
         if rsp.__dict__['stat'] != 'ok':
             # TODO: undo
             # raise APISetterException
-            logging.debug("'uh oh: stat=%s" % rsp.__dict__['stat'])
+            log.debug("'uh oh: stat=%s" % rsp.__dict__['stat'])
 
         task = rsp.list.taskseries.task
 
@@ -175,25 +195,25 @@ class RTMTask(Task):
         return rsp
 
 
-    def setName(self,name):
+    def _setName(self,name):
         return self._rtmwrap(self.rtm.tasks.setName,'name',name)
 
-    def setTags(self,tags):
+    def _setTags(self,tags):
         return self._rtmwrap(self.rtm.tasks.setTags,'tags',','.join(tags))
 
-    def setDue(self,due):
+    def _setDue(self,due):
         return self._rtmwrap(self.rtm.tasks.setDueDate,'due',due, parse=True)
 
-    def setEstimate(self,estimate):
+    def _setEstimate(self,estimate):
         return self._rtmwrap(self.rtm.tasks.setEstimate,'estimate',estimate)
 
-    def setRecurrence(self,recurrence):
+    def _setRecurrence(self,recurrence):
         return self._rtmwrap(self.rtm.tasks.setRecurrence,'repeat',recurrence)
 
-    def setPriority(self,priority):
+    def _setPriority(self,priority):
         return self._rtmwrap(self.rtm.tasks.setPriority,'priority',priority)
 
-    def setCompleted(self,completed):
+    def _setCompleted(self,completed):
         kw = self._params()
         if completed:
             return self.rtm.tasks.complete(**kw)
@@ -205,7 +225,7 @@ class RTMTask(Task):
         # update
         #try:
             if self.isNew:
-                logging.debug("Creating a new task")
+                log.debug("Creating a new task")
                 tr = self.rtm.tasks.add(timeline=self.rtm._tl,name=self.name,parse=True)
                 self.list_id = tr.list.id
                 self.taskseries_id = tr.list.taskseries.id
@@ -215,23 +235,23 @@ class RTMTask(Task):
                 for attr in TASK_ATTRS:
                     val = self.__dict__.get(attr)
                     if val:
-                        func = self.__class__.__dict__.get('set%s' % attr.title(),printer)
+                        func = self.__class__.__dict__.get('_set%s' % attr.title(),printer)
                         func(self,val or '')
-                        logging.debug("%s   %s" % (func.__name__, val))
             else:
                 for attr in self._updated:
                     val = self.__dict__.get(attr)
-                    func = self.__class__.__dict__.get('set%s' % attr.title(),printer)
+                    func = self.__class__.__dict__.get('_set%s' % attr.title(),printer)
                     func(self,val or '')
                     self._updated.remove(attr)
                 
                     # update self with relevant
-            logging.info("Saved task: %s (%s:%s)" % (self.name, self.list_id, self.id))
-            logging.debug(self.__dict__)
+            log.info("Task saved")
+            log.info(str(self))
+            #log.debug(self.__dict__)
             return True
         #except:
             # TODO: undo
-            logging.error("Error saving task")
+            log.error("Error saving task")
             return False
 
 
@@ -247,6 +267,10 @@ def test_Task(rtm=RMilk()):
 if __name__=="__main__":
     from optparse import OptionParser
     from operator import xor
+    
+    from itertools import imap,ifilter,count,izip
+    import re
+
     arg = OptionParser(version="%prog 0.2")
 
     arg.add_option('-c','--create',dest='create', action='store_true',help='Create a new task')
@@ -261,8 +285,13 @@ if __name__=="__main__":
     arg.add_option('-i','--ipython',dest='ipython',action='store_true',
             help='Create RTM connection and drop to ipython')
 
-    arg.add_option('--rename',nargs=2,dest='tag_rename',
+    arg.add_option('--tagrename',nargs=2,dest='tag_rename',
             help='Rename <original> with <tag>. Requires list filter')
+    arg.add_option('--taskrename',nargs=2,dest='task_rename',
+            help='Rename <regex> to <pattern>. Requires list filter')
+    
+    arg.add_option("-v", action="count", dest="verbosity")
+    
     arg.add_option('--test',dest='test',action='store_true',help='Testing')
 
     (options, args) = arg.parse_args()
@@ -275,24 +304,30 @@ if __name__=="__main__":
     # Intialize tasklist
     tasklist = None
 
+    # Logging init
+    if options.verbosity > 1:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
+
     # Exclusive actions
     if not any(actions.values()):
-        print "What?"
+        log.error("What?")
     elif not reduce(xor, map(bool, actions.values())):
-        logging.error("Can only select one of %s" % ', '.join(actions.keys()))
+        log.error("Can only select one of %s" % ', '.join(actions.keys()))
         exit()
     else:
         # Create global connection object
         rtm = RMilk()
 
     if options.test:
-        print "<tests>"
-        print ' <task creation>'
+        log.info("<tests>")
+        log.info(' <task creation>')
         t = RTMTask(rtm,name='cool',tags=['delete','this'],estimate='1 hour')
-        print '  <saving>'
+        log.info('  <saving>')
         t.save()
         #test_Task(rtm)
-        print '</tests>'
+        log.info('</tests>')
         exit()
 
     # Normalize tags list
@@ -300,7 +335,6 @@ if __name__=="__main__":
         options.tags = map(str.strip, options.tags.split(','))
 
     if options.create:
-        print 'esdfsdf: ', options.estimate
         t = RTMTask(rtm,name=options.name,
                 tags=options.tags,
                 due=options.due,
@@ -321,21 +355,53 @@ if __name__=="__main__":
 
     if options.tag_rename: # 2 options
         if not options.get_list:
-            logging.info("A list filter is required to rename")
+            log.info("A list filter is required to rename")
             exit()
 
         (old,new) = options.tag_rename
-        print "%s --> %s" % (old,new)
+        log.info("Tag Rename: %s --> %s" % (old,new))
 
         for t in tasklist:
-            t.tags = list(set(t.tags).union([new]).difference([old]))
-            logging.info(" - %s" % t.name)
+            t._tagRename(old,new)
+            log.info(" - %s" % t.name)
             t.save()
+
+    if options.task_rename: # Regex
+        if not options.get_list:
+            log.info("List filter is required to rename")
+            exit()
+
+        (regex,output) = options.task_rename
+        reg = re.compile(regex)
+        log.debug("Task Rename: %s --> %s" % (regex,output))
+
+        # ((task,new_name),number) iterator for matching tasks
+        matches = map(lambda x: (x[0],output % x[1].groups(),count()),
+                    ifilter(lambda x: x[1],
+                        imap(lambda x: (x, reg.search(x.name)),
+                            tasklist)))
+
+        # Confirm transform
+        for (i,t) in izip(range(1,len(matches)),matches):
+            print "%d. '%s' -> '%s'" % (i, t[0].name, t[1])
+        if raw_input("Confirm rename? (Y\N Default N): ").lower() not in [
+                'y','yes','sweet','doit']:
+            log.info("Rename cancelled")
+            exit()
+   
+
+        log.debug("Renaming...")
+        # Rename all matches
+        for t in matches:
+            log.debug("Renamed: '%s' -> '%s'" % (t[0].name, t[1]))
+            t[0]._setName(output % t[1])
+
 
     if options.ipython:
         try:
             from IPython.Shell import IPShellEmbed
-            ipshell = IPShellEmbed(argv=[])
+            ipshell = IPShellEmbed(argv=['-l','-lf','rtm_log.py'])
             ipshell(header='--- rtm interactive ---')
         except:
-            print "Couldn't find IPython"
+            log.error("Couldn't find IPython")
+
