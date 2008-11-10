@@ -4,6 +4,8 @@ from rtm import createRTM, RTM
 import logging
 from string import Template
 
+# TODO move this logic out of the Task class
+import datetime
 
 # Globals
 API_KEY="8db21291ccdbcd858059799cb44dc57c"
@@ -106,11 +108,7 @@ class RMilk(RTM):
 
 
 TEMPLATE_TASK = Template(
-'''Name: ${name}
-Tags: ${tags}
-Due : ${due}
-Est : ${estimate}
-Pri : ${priority}''')
+'''${name} (${tags}) [${due}] { ${priority} }''')
 
 TASK_ATTRS = ['name','tags','due','estimate','recurrence','priority',
         'parse','id','list_id','taskseries_id','completed']
@@ -128,12 +126,19 @@ class Task(object):
                 log.error("'%s' property not supported by task object" % k)
 
     def __str__(self):
-        return TEMPLATE_TASK.substitute({
+        return TEMPLATE_TASK.substitute(self._dict())
+
+
+    def _dict(self):
+        # TODO: display logic in the wrong place?
+        return {
             'name':self.name,
             'tags':self.tags and ', '.join(self.tags) or '',
             'due': self.due or '',
             'estimate': self.estimate or '',
-            'priority': self.priority or ''})
+            'priority': self.priority or '',
+            'due_human': datetime.date(*map(int,self.due[:10].split('-'))).strftime("%m/%d"),
+            'tags_filt':self.tags and ', '.join(filter(lambda x: not x.startswith('-'), self.tags)) or ''}
 
     def _tagRename(self,old,new):
         self.tags = list(set(self.tags).difference([old]).union([new]))
@@ -271,7 +276,7 @@ if __name__=="__main__":
     from itertools import imap,ifilter,count,izip
     import re
 
-    arg = OptionParser(version="%prog 0.2")
+    arg = OptionParser(version="%prog 0.21")
 
     arg.add_option('-c','--create',dest='create', action='store_true',help='Create a new task')
     arg.add_option('-n','--name',dest='name',help='Task name')
@@ -289,7 +294,12 @@ if __name__=="__main__":
             help='Rename <original> with <tag>. Requires list filter')
     arg.add_option('--taskrename',nargs=2,dest='task_rename',
             help='Rename <regex> to <pattern>. Requires list filter')
-    
+
+    arg.add_option('--hipster',nargs=2,dest='template_hipster',help="Create a hipster pda with the title")
+    #TODO
+    #arg.add_option('--preview',dest='preview',action='store_true',help='Preview renames')
+
+
     arg.add_option("-v", action="count", dest="verbosity")
     
     arg.add_option('--test',dest='test',action='store_true',help='Testing')
@@ -346,7 +356,7 @@ if __name__=="__main__":
     if options.get_list:
         tasklist = rtm.getList(filter=options.get_list)
         for task in tasklist:
-            print '\n',str(task)
+            print '- ',str(task)
 
     if options.search:
         tasklist = rtm.getList(filter='(name:"%s" OR tag:"%s")' % (options.search,options.search))
@@ -383,12 +393,11 @@ if __name__=="__main__":
 
         # Confirm transform
         for (i,t) in izip(range(1,len(matches)),matches):
-            print "%d. '%s' -> '%s'" % (i, t[0].name, t[1])
+            print "%-2d. '%s' -> '%s'" % (i, t[0].name, t[1])
         if raw_input("Confirm rename? (Y\N Default N): ").lower() not in [
                 'y','yes','sweet','doit']:
             log.info("Rename cancelled")
             exit()
-   
 
         log.debug("Renaming...")
         # Rename all matches
@@ -396,6 +405,49 @@ if __name__=="__main__":
             log.debug("Renamed: '%s' -> '%s'" % (t[0].name, t[1]))
             t[0]._setName(output % t[1])
 
+
+    if options.template_hipster:
+        (title,filepath)=options.template_hipster
+        from string import Template
+        TEMPLATE_HIPSTER_BODY=Template("""
+        <html>
+        <head><title>${title}</title>
+        <style type="text/css">${css}</style>
+        </head>
+        <body><div id="content">
+            <h1>${title}</h1>
+            <ul>${items}</ul>
+        </div></body></html>""")
+        TEMPLATE_HIPSTER_TASK=Template("""<li><span class="taskname">${name}</span>
+                <span class="tags">${tags_filt}</span><span class="due">${due_human}</span></li>""")
+
+        TEMPLATE_HIPSTER_CSS="""
+html, body, ul, h1, #content, #content li { padding: 0 !important; margin: 0 !important; font-family: "Trebuchet MS" }
+#content { width: 400px !important; }
+#content li { border-bottom: 1px solid #aaa !important; }
+h1 { font-size: 1.3em; text-align: center; }
+span.taskname, span.tags { float: left; }
+#content li { clear: both; }
+#content li span.taskname { font-weight: bold;  }
+#content li span.due { font-weight: normal; float:right; text-align: right;  }
+#content li span.tags { font-size: 0.8em; font-weight: normal; }
+#content li span.priolist { font-weight: normal; display: none; }
+        """
+
+        tasklist = sorted(tasklist,key=lambda x: x.due)
+
+        context = {}
+        context['title'] = title
+        context['items'] = '\n'.join(map(lambda x: TEMPLATE_HIPSTER_TASK.substitute(x._dict()), tasklist))
+        context['css'] = TEMPLATE_HIPSTER_CSS
+
+
+        file(filepath,'w+').writelines(TEMPLATE_HIPSTER_BODY.substitute(**context))
+        import webbrowser
+        webbrowser.open(filepath)
+
+
+        
 
     if options.ipython:
         try:
