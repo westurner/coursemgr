@@ -1,10 +1,14 @@
-======================================================================
-Python library for Remember The Milk API
-======================================================================
+PyRTM
+=====
+Pythonic Remember The Milk
+Author: Wes Turner
 
-Copyright (c) 2008 by Sridhar Ratnakumar <http://nearfar.org/>
-
-Contributors:
- - Mariano Draghi (cHagHi) <mariano at chaghi dot com dot ar>
-
-See app.py for examples
+Objectives
+----------
+1. Abstract rtm.py api to a more pythonic API
+2. Enable:
+   - CRUD Operations
+   - Searching of tasks
+   - Task Renaming
+   - Tag Renaming
+3. Provide a commandline client to access RTM

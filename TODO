@@ -1,0 +1,25 @@
+TODO
+====
+- Better Documentation
+- wrapper + @prop on RTMTask._set* methods
+- Delete
+- Tests
+- Transaction Handling
+- Better output templates
+- IPython Header
+- Verbosity levels
+- Single task selection
+- API Auth(z) setup to config file
+  - API Key, Token, Timezone
+- IPython Logging Default
+  - logstart
+- List Model
+- Handle list names
+
+
+Potential
+=========
+- Django/AppEngine
+- Django Templates
+- terminal coloring
+- ncurses

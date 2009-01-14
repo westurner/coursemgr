@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # simple app
-from rtm import createRTM, RTM
+from lib.pyrtm.rtm import createRTM, RTM
 import logging
 from string import Template
 
@@ -56,9 +56,10 @@ class RMilk(RTM):
         """ Filter, cache, and return lists as dict """
         if self.LISTS:
             return self.LISTS
-        self.LISTS = dict(map(lambda x:(x.name, x.id), 
-            filter(lambda x: x.smart == u'0',
-                self.lists.getList().lists.list)))
+        self.LISTS = dict(
+		map(lambda x:(x.name, x.id), 
+            		filter(lambda x: x.smart == u'0',
+				self.lists.getList().lists.list) ))
         return self.LISTS
 
     def getList(self, filter='', list_id=None, showcompleted=False):
@@ -94,7 +95,7 @@ class RMilk(RTM):
 
         
     def _createTask(self,task,list_id,taskseries_id):
-        print task
+        log.debug(str(task))
         kw = {  'name':task.name,
                 'tags':task.tags and task.tags.tag or [],
                 'completed':task.task.completed or '',
@@ -340,7 +341,7 @@ if __name__=="__main__":
         log.info('</tests>')
         exit()
 
-    # Normalize tags list
+    # Normalize comma separated tags list
     if options.tags:
         options.tags = map(str.strip, options.tags.split(','))
 
@@ -356,7 +357,7 @@ if __name__=="__main__":
     if options.get_list:
         tasklist = rtm.getList(filter=options.get_list)
         for task in tasklist:
-            print '- ',str(task)
+            log.debug('- %s' % task)
 
     if options.search:
         tasklist = rtm.getList(filter='(name:"%s" OR tag:"%s")' % (options.search,options.search))
@@ -378,7 +379,7 @@ if __name__=="__main__":
 
     if options.task_rename: # Regex
         if not options.get_list:
-            log.info("List filter is required to rename")
+            log.info("A list filter is required to rename")
             exit()
 
         (regex,output) = options.task_rename
