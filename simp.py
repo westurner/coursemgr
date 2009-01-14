@@ -3,17 +3,10 @@
 from lib.pyrtm.rtm import createRTM, RTM
 import logging
 from string import Template
-
-# TODO move this logic out of the Task class
 import datetime
 
 # Globals
-API_KEY="8db21291ccdbcd858059799cb44dc57c"
-API_SEC="5d80e818ec7aa0b4"
-
-API_TOK="abee05a338c1799fe8f86bde83de573e9628cfe7"
-
-TZ_DEFAULT=84 # Chicago CDT
+CONFIG_DEFAULT='simp.cfg'
 
 # logging init
 logging.basicConfig(format="%(asctime)-15s %(message)s")
@@ -30,8 +23,8 @@ def printer(*kargs,**kwargs):
         printdict(kwargs)
 
 class RMilk(RTM):
-    def __init__(self,apiKey=API_KEY,secret=API_SEC,token=API_TOK):
-        super(RMilk,self).__init__(apiKey,secret,token)
+    def __init__(self,api_key,api_secret,api_token,lists=None):
+        super(RMilk,self).__init__(api_key,api_secret,api_token)
         
         if 0 and token is None:
             print 'No token found'
@@ -39,13 +32,11 @@ class RMilk(RTM):
             raw_input('Press enter after log.in at the link above')
             token = self.getToken()
             print 'Remember this token:', token
-            super(RMilk,self).__init__(self,apiKey,secret,token)
+            super(RMilk,self).__init__(self,api_key,api_secret,api_token)
 
         self._tl = self.timelines.current = self.timelines.create().timeline
 
-        #self.LISTS = self.getListDict()
-        self.LISTS = {u'Daily': u'4574767', u'Inbox': u'3917063', u'Sent': u'3917067'}
-
+        self.LISTS = lists or self.getListDict()
 
     def getTimezones(self):
         print '\n'.join([' : '.join(
@@ -262,7 +253,7 @@ class RTMTask(Task):
 
 
 
-def test_Task(rtm=RMilk()):
+def test_Task(rtm=None): # = RMilk()
     t = Task(name="wow",tags=['prety','@cool'], due="tomorrow", estimate="10 minutes")
     t.save(rtm)
     print t.__str_detailed__()
@@ -279,6 +270,7 @@ if __name__=="__main__":
 
     arg = OptionParser(version="%prog 0.21")
 
+    arg.add_option('--config',dest='config_file',help='Path to a config file')
     arg.add_option('-c','--create',dest='create', action='store_true',help='Create a new task')
     arg.add_option('-n','--name',dest='name',help='Task name')
     arg.add_option('-t','--tags',dest='tags', help='Task tags (comma separated)')
@@ -324,12 +316,26 @@ if __name__=="__main__":
     # Exclusive actions
     if not any(actions.values()):
         log.error("What?")
+        exit()
     elif not reduce(xor, map(bool, actions.values())):
         log.error("Can only select one of %s" % ', '.join(actions.keys()))
         exit()
-    else:
+    
+    # Read values from config file
+    try:
+        from ConfigParser import ConfigParser
+        config = ConfigParser()
+        #
+        config.read(options.config_file or CONFIG_DEFAULT)
+        API_KEY = config.get('RTM','api_key')
+        API_TOKEN = config.get('RTM','api_token')
+        API_SECRET = config.get('RTM','api_secret')
+        LISTS = config.get('RTM','lists')
         # Create global connection object
-        rtm = RMilk()
+        rtm = RMilk(API_KEY, API_SECRET, API_TOKEN, LISTS)
+    except Exception, e:
+        log.error(e)
+        exit()
 
     if options.test:
         log.info("<tests>")
@@ -357,7 +363,7 @@ if __name__=="__main__":
     if options.get_list:
         tasklist = rtm.getList(filter=options.get_list)
         for task in tasklist:
-            log.debug('- %s' % task)
+            print '- %s' % task
 
     if options.search:
         tasklist = rtm.getList(filter='(name:"%s" OR tag:"%s")' % (options.search,options.search))
@@ -374,7 +380,7 @@ if __name__=="__main__":
 
         for t in tasklist:
             t._tagRename(old,new)
-            log.info(" - %s" % t.name)
+            print " - %s" % t.name
             t.save()
 
     if options.task_rename: # Regex
