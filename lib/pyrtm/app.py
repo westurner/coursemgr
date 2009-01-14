@@ -1,3 +1,4 @@
+#!/usr/bin/env python2.5
 # simple app
 
 from rtm import createRTM
