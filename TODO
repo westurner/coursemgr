@@ -1,5 +1,10 @@
 TODO
 ====
+- Google Calendar Support
+  - RTM
+  - GCal
+  - RTM + GCal
+
 - Better Documentation
 - wrapper + @prop on RTMTask._set* methods
 - Delete
@@ -7,7 +12,6 @@ TODO
 - Transaction Handling
 - Better output templates
 - IPython Header
-- Verbosity levels
 - Single task selection
 - API Auth(z) setup to config file
   - API Key, Token, Timezone
