@@ -12,8 +12,3 @@ Objectives
    - Task Renaming
    - Tag Renaming
 3. Provide a commandline client to access RTM
-4. Allow cross-posting to Google Calendar
-5. Parse a plaintext file format into the appropriate rtm and google calendar events
-   - Prepopulate duplicate tags (ie all assignments for the class are @pc and .d.className)
-   - Store course syllabi in a separate git repository
-   - TODO: generate a grade spreadsheet

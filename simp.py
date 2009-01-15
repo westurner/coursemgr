@@ -102,9 +102,6 @@ class RMilk(RTM):
     def parseTime(self, freeform_time):
         def convert_date(from_rtm):
             d1 = datetime.datetime.strptime(from_rtm,'%Y-%m-%dT%H:%M:%SZ')
-            if '/' in freeform_time:
-                return d1
-
             return d1 - datetime.timedelta(1)
         # TODO: catch errors
         rtm_time = rtm.time.parse(text=freeform_time).time.__dict__['$t']
