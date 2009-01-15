@@ -5,6 +5,7 @@ import logging
 from string import Template
 import datetime
 
+
 # Globals
 CONFIG_DEFAULT='simp.cfg'
 
@@ -14,11 +15,11 @@ log = logging.getLogger('rtmsimp')
 log.setLevel(logging.INFO)
 
 def printdict(d):
-    print '\n'.join([("%s : %s" % (k,v)) for (k,v) in d.items()])
+    log.debug('\n'.join([("%s : %s" % (k,v)) for (k,v) in d.items()]))
 
 def printer(*kargs,**kwargs):
     if len(kargs) > 1:
-        print 'kargs: ', kargs
+        log.debug('kargs: %s' % ','.join(map(str,kargs)))
     if len(kwargs) > 0:
         printdict(kwargs)
 
@@ -98,6 +99,16 @@ class RMilk(RTM):
                 'estimate':task.task.estimate }
         return RTMTask(self,new=False,**kw)
 
+    def parseTime(self, freeform_time):
+        def convert_date(from_rtm):
+            d1 = datetime.datetime.strptime(from_rtm,'%Y-%m-%dT%H:%M:%SZ')
+            return d1 - datetime.timedelta(1)
+        # TODO: catch errors
+        rtm_time = rtm.time.parse(text=freeform_time).time.__dict__['$t']
+        adj_time = convert_date(rtm_time)
+        log.debug('parseTime: %s -> %s -> %s' % (freeform_time, rtm_time, adj_time))
+        return adj_time
+
 
 TEMPLATE_TASK = Template(
 '''${name} (${tags}) [${due}] { ${priority} }''')
@@ -151,6 +162,9 @@ class RTMTask(Task):
         self.rtm = rtm
         self._updated = []
         #log.debug(printdict(self.__dict__))
+
+    def __str__(self):
+        return super(RTMTask,self).__str__()
 
     def __setattr__(self, attr, val):
         # track which attrs have changed since init
@@ -242,8 +256,7 @@ class RTMTask(Task):
                     self._updated.remove(attr)
                 
                     # update self with relevant
-            log.info("Task saved")
-            log.info(str(self))
+            log.info("RTM Task saved: %s" % self)
             #log.debug(self.__dict__)
             return True
         #except:
@@ -271,7 +284,8 @@ if __name__=="__main__":
     arg = OptionParser(version="%prog 0.21")
 
     arg.add_option('--config',dest='config_file',help='Path to a config file')
-    arg.add_option('-c','--create',dest='create', action='store_true',help='Create a new task')
+    arg.add_option('-c','--create',dest='create', action='store_true',help='Create a new RTM task')
+    arg.add_option('-g','--gcal',dest='create_gcal', action='store_true',help='Create a new GCal entry')
     arg.add_option('-n','--name',dest='name',help='Task name')
     arg.add_option('-t','--tags',dest='tags', help='Task tags (comma separated)')
     arg.add_option('-d','--due',dest='due', help='Due date')
@@ -302,6 +316,7 @@ if __name__=="__main__":
     actions={'-c/--create':options.create,
             '-l/--list':options.get_list,
             '-s/--search':options.search,
+            '-i/--ipython':options.ipython,
             '--test':options.test}
 
     # Intialize tasklist
@@ -314,10 +329,10 @@ if __name__=="__main__":
         log.setLevel(logging.INFO)
 
     # Exclusive actions
-    if not any(actions.values()):
+    if not any(actions.values()) and not options.create_gcal:
         log.error("What?")
         exit()
-    elif not reduce(xor, map(bool, actions.values())):
+    elif not reduce(xor, map(bool, actions.values())) and not options.create_gcal:
         log.error("Can only select one of %s" % ', '.join(actions.keys()))
         exit()
     
@@ -331,6 +346,7 @@ if __name__=="__main__":
         API_TOKEN = config.get('RTM','api_token')
         API_SECRET = config.get('RTM','api_secret')
         LISTS = config.get('RTM','lists')
+        GCAL_TOKEN = config.get('GCal','authsub_token')
         # Create global connection object
         rtm = RMilk(API_KEY, API_SECRET, API_TOKEN, LISTS)
     except Exception, e:
@@ -359,6 +375,20 @@ if __name__=="__main__":
                 recurrence=options.recurrence,
                 priority=options.priority,)
         t.save()
+
+    if options.create_gcal:
+        import gcal
+        gcal_service = gcal.GetCalendarService(GCAL_TOKEN)
+        try:
+            start_time = rtm.parseTime(options.due).strftime('%Y-%m-%dT%H:%M:%S.000')
+            log.debug(start_time)
+        except Exception, e:
+            log.error(e)
+            exit()
+
+        gcal.InsertSingleEvent(gcal_service, title=options.name,
+            content='(%s)' % (','.join(options.tags)),
+            start_time = start_time)
 
     if options.get_list:
         tasklist = rtm.getList(filter=options.get_list)
@@ -458,9 +488,11 @@ span.taskname, span.tags { float: left; }
 
     if options.ipython:
         try:
+            import IPython
             from IPython.Shell import IPShellEmbed
-            ipshell = IPShellEmbed(argv=['-l','-lf','rtm_log.py'])
+            ipshell = IPShellEmbed(argv=['-l'])
             ipshell(header='--- rtm interactive ---')
-        except:
+        except Exception, e:
+            log.error(e)
             log.error("Couldn't find IPython")
 
