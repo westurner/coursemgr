@@ -55,8 +55,8 @@ def GetAuthSubSessionToken():
 
 
 
-def InsertSingleEvent(calendar_service, title='One-time Tennis with Beth', 
-                      content='Meet for a quick lesson', location='On the courts', 
+def InsertSingleEvent(calendar_service, title='', 
+                      content='', location='', 
                       start_time=None, end_time=None):
     event = gdata.calendar.CalendarEventEntry()
     event.title = atom.Title(text=title)
@@ -70,10 +70,11 @@ def InsertSingleEvent(calendar_service, title='One-time Tennis with Beth',
     event.when.append(gdata.calendar.When(start_time=start_time, end_time=end_time))
     
     new_event = calendar_service.InsertEvent(event, '/calendar/feeds/default/private/full')
-    
-    print 'New single event inserted: %s' % (new_event.id.text,)
-    print '\tEvent edit URL: %s' % (new_event.GetEditLink().href,)
-    print '\tEvent HTML URL: %s' % (new_event.GetHtmlLink().href,)
+
+    log.info('GCal Added: %s (%s) [%s]' % (title, start_time, content))
+    #print 'New single event inserted: %s' % (new_event.id.text,)
+    #print '\tEvent edit URL: %s' % (new_event.GetEditLink().href,)
+    #print '\tEvent HTML URL: %s' % (new_event.GetHtmlLink().href,)
     
     return new_event
 
